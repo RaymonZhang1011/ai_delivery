@@ -1,0 +1,196 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 项目表
+model Project {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+
+  // 新增字段
+  testEnv     String?  // 测试环境地址
+  domain      String?  // 域名
+  keyones     String?  // KeyOnes四层级（用/分隔，例如：技术效能中心/效能架构部/CodeLink/IDECodeLink）
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // 关联关系
+  gitRepos    GitRepo[]
+  permissions ProjectPermission[]
+  tasks       Task[]
+  assignees   ProjectAssignee[] // 可下发需求的人员
+}
+
+// Git仓库表
+model GitRepo {
+  id          String   @id @default(uuid())
+  projectId   String
+  name        String
+  url         String
+  description String?
+  owner       String?  // 负责人
+  reviewer    String?  // CR人（Code Reviewer）
+  knowledge   String?  @db.Text // Git仓库知识
+  knowledgeStatus String? @default("not_generated") // not_generated, generating, generated, failed
+  knowledgeGeneratedAt DateTime? // 知识生成时间
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // 关联关系
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+// 可下发需求的人员表
+model ProjectAssignee {
+  id          String   @id @default(uuid())
+  projectId   String
+  userName    String   // 人员姓名
+  userEmail   String?  // 人员邮箱
+  position    String?  // 职位
+  createdAt   DateTime @default(now())
+
+  // 关联关系
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userName])
+  @@index([projectId])
+}
+
+// 项目权限表
+model ProjectPermission {
+  id          String   @id @default(uuid())
+  projectId   String
+  userId      String
+  role        String   // owner, assignee, reviewer
+  createdAt   DateTime @default(now())
+
+  // 关联关系
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId, role])
+  @@index([projectId])
+  @@index([userId])
+}
+
+// 任务表（需求）
+model Task {
+  id             String   @id @default(uuid())
+  projectId      String
+  title          String
+  description    String   @db.Text
+  status         String   // pending, in_progress, completed, failed
+  createdBy      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  completedAt    DateTime?
+
+  // 关联关系
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  conversations  Conversation[]
+  deliveryReport DeliveryReport?
+
+  @@index([projectId])
+  @@index([status])
+  @@index([createdBy])
+}
+
+// 会话记录
+model Conversation {
+  id        String   @id @default(uuid())
+  taskId    String
+  role      String   // user, assistant, system
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  // 关联关系
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+}
+
+// 交付报告
+model DeliveryReport {
+  id                String   @id @default(uuid())
+  taskId            String   @unique
+  tokenConsumed     Int?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // 关联关系
+  task              Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  mergeRequests     MergeRequest[]
+  codeChanges       CodeChange[]
+  databaseChanges   DatabaseChange[]
+  configChanges     ConfigChange[]
+}
+
+// MR记录
+model MergeRequest {
+  id               String         @id @default(uuid())
+  reportId         String
+  gitRepoName      String
+  mrUrl            String
+  status           String         // open, merged, closed
+  createdAt        DateTime       @default(now())
+
+  // 关联关系
+  deliveryReport   DeliveryReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+}
+
+// 代码变更记录
+model CodeChange {
+  id               String         @id @default(uuid())
+  reportId         String
+  gitRepoName      String
+  filePath         String
+  changeType       String         // added, modified, deleted
+  content          String?        @db.Text
+  createdAt        DateTime       @default(now())
+
+  // 关联关系
+  deliveryReport   DeliveryReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+}
+
+// 数据库变更记录
+model DatabaseChange {
+  id               String         @id @default(uuid())
+  reportId         String
+  changeType       String         // DDL, DML
+  sqlScript        String         @db.Text
+  description      String?
+  createdAt        DateTime       @default(now())
+
+  // 关联关系
+  deliveryReport   DeliveryReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+}
+
+// 配置变更记录
+model ConfigChange {
+  id               String         @id @default(uuid())
+  reportId         String
+  configType       String         // file, platform
+  configKey        String
+  oldValue         String?        @db.Text
+  newValue         String         @db.Text
+  createdAt        DateTime       @default(now())
+
+  // 关联关系
+  deliveryReport   DeliveryReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+}

@@ -1,0 +1,26 @@
+[ {
+  "@codelink-mcp/feishu-mcp" : {
+    "delete" : false,
+    "status" : "enabled"
+  }
+}, {
+  "@codelink-mcp/Weapons" : {
+    "delete" : false,
+    "status" : "enabled"
+  }
+}, {
+  "@modelcontextprotocol/Github" : {
+    "delete" : false,
+    "status" : "enabled"
+  }
+}, {
+  "@codelink-mcp/Dayu" : {
+    "delete" : false,
+    "status" : "enabled"
+  }
+}, {
+  "@codelink-mcp/KeOnes" : {
+    "delete" : false,
+    "status" : "enabled"
+  }
+} ]
